@@ -116,7 +116,7 @@ jobs:
         id: tfcheck
         run: |
           shopt -s globstar nullglob
-          files=(iac/**/*.tf)
+          files=(iac/**/*.tf iac/**/*.tf.json)
           if [ ${#files[@]} -eq 0 ]; then
             echo "has_tf=false" >> "$GITHUB_OUTPUT"
           else
@@ -133,7 +133,7 @@ jobs:
         if: steps.tfcheck.outputs.has_tf == 'true'
         run: |
           terraform fmt -check -recursive iac/
-          mapfile -t dirs < <(find iac -name '*.tf' -exec dirname {} \; | sort -u)
+          mapfile -t dirs < <(find iac \( -name '*.tf' -o -name '*.tf.json' \) -exec dirname {} \; | sort -u)
           for d in "${dirs[@]}"; do
             echo "Validating Terraform in $d"
             terraform -chdir="$d" init -backend=false

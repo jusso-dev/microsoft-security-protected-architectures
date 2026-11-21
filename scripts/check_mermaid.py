@@ -13,7 +13,10 @@ import tempfile
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 IGNORED_DIRS = {".git", "node_modules", ".terraform", ".venv", "__pycache__"}
-MERMAID_BLOCK_RE = re.compile(r"```mermaid\s*\n(.*?)\n```", re.DOTALL)
+MERMAID_BLOCK_RE = re.compile(
+    r"(?m)^[ \t]*(`{3,}|~{3,})mermaid[ \t]*\r?\n(.*?)\r?\n^[ \t]*\1[ \t]*$",
+    re.DOTALL,
+)
 
 VALID_HEADERS = (
     "flowchart",
@@ -45,16 +48,32 @@ def extract_mermaid_blocks(markdown_text: str) -> list[tuple[int, str]]:
     blocks: list[tuple[int, str]] = []
     for match in MERMAID_BLOCK_RE.finditer(markdown_text):
         line_no = markdown_text.count("\n", 0, match.start()) + 1
-        blocks.append((line_no, match.group(1)))
+        blocks.append((line_no, match.group(2)))
     return blocks
+
+
+def _strip_frontmatter(source: str) -> str:
+    """Remove optional YAML frontmatter delimited by --- lines."""
+    lines = source.splitlines()
+    idx = 0
+    while idx < len(lines) and not lines[idx].strip():
+        idx += 1
+    if idx < len(lines) and lines[idx].strip() == "---":
+        end_idx = idx + 1
+        while end_idx < len(lines) and lines[end_idx].strip() != "---":
+            end_idx += 1
+        if end_idx < len(lines):
+            return "\n".join(lines[end_idx + 1 :])
+    return source
 
 
 def validate_mermaid_syntax(source: str) -> list[str]:
     """Perform static structural checks on a Mermaid diagram."""
     errors: list[str] = []
+    body = _strip_frontmatter(source)
     lines = [
         line.strip()
-        for line in source.splitlines()
+        for line in body.splitlines()
         if line.strip() and not line.strip().startswith("%%")
     ]
     if not lines:

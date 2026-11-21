@@ -52,11 +52,13 @@ python3 scripts/check_mermaid.py --syntax-only
 When modifying files in `iac/`:
 
 ```bash
-# Bicep build check (when iac/bicep contains .bicep files)
-az bicep build --file iac/bicep/main.bicep --outfile /tmp/main.json
+# Bicep build check (builds all .bicep files under iac/)
+find iac -name '*.bicep' -exec sh -c 'for f; do az bicep build --file "$f" --stdout > /dev/null; done' _ {} +
 
-# Terraform format and validate check (when iac/terraform contains .tf files)
-terraform fmt -check -recursive iac/terraform
-terraform -chdir=iac/terraform init -backend=false
-terraform -chdir=iac/terraform validate
+# Terraform format and validate check (validates each Terraform configuration directory under iac/)
+terraform fmt -check -recursive iac/
+find iac \( -name '*.tf' -o -name '*.tf.json' \) -exec dirname {} \; | sort -u | while read -r d; do
+  terraform -chdir="$d" init -backend=false
+  terraform -chdir="$d" validate
+done
 ```

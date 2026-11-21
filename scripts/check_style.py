@@ -66,9 +66,15 @@ SECRET_PATTERNS = [
 ]
 
 ENDORSEMENT_RE = re.compile(
-    r"(?i)\b(?<!not\s)(?<!no\s)(?<!never\s)(?<!neither\s)(?<!without\s)"
-    r"(?:officially\s+)?(?:endorsed|approved|certified)\s+by\s+"
-    r"(?:the\s+)?(?:ASD|ACSC|Microsoft)\b"
+    r"(?i)\b(?:officially\s+)?(?:endorsed|approved|certified)\s+"
+    r"(?:(?:or|and)\s+(?:supported|approved|endorsed|certified)\s+)*"
+    r"by\s+(?:the\s+)?(?:ASD|ACSC|Microsoft)\b"
+)
+
+NEGATION_BEFORE_ENDORSEMENT_RE = re.compile(
+    r"(?i)(?:\b(?:not|no|never|neither|nor|without)\b|"
+    r"\b(?:do\s+not|does\s+not|cannot|no\s+claim\s+of)\b)"
+    r"[^.;:!?]{0,60}$"
 )
 
 
@@ -101,20 +107,9 @@ def check_text(text: str, filename: str = "<input>") -> list[str]:
                     f"{filename}:{line_no}: potential secret detected ({label})"
                 )
         if filename.endswith(".md"):
-            if ENDORSEMENT_RE.search(line):
-                # Allow lines that clearly state non-endorsement earlier in the sentence.
-                lowered = line.lower()
-                if not any(
-                    neg in lowered
-                    for neg in (
-                        "not produced, endorsed",
-                        "not endorsed",
-                        "no claim of",
-                        "do not claim",
-                        "does not imply",
-                        "independent community",
-                    )
-                ):
+            for match in ENDORSEMENT_RE.finditer(line):
+                prefix = line[: match.start()]
+                if not NEGATION_BEFORE_ENDORSEMENT_RE.search(prefix):
                     errors.append(
                         f"{filename}:{line_no}: possible ASD, ACSC or Microsoft endorsement claim"
                     )

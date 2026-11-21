@@ -9,7 +9,10 @@ import sys
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 IGNORED_DIRS = {".git", "node_modules", ".terraform", ".venv", "__pycache__"}
-KQL_BLOCK_RE = re.compile(r"```kql\s*\n(.*?)\n```", re.DOTALL | re.IGNORECASE)
+KQL_BLOCK_RE = re.compile(
+    r"(?m)^[ \t]*(`{3,}|~{3,})kql[ \t]*\r?\n(.*?)\r?\n^[ \t]*\1[ \t]*$",
+    re.DOTALL | re.IGNORECASE,
+)
 
 
 def _strip_comments_and_strings(query: str) -> tuple[str, list[str]]:
@@ -24,6 +27,16 @@ def _strip_comments_and_strings(query: str) -> tuple[str, list[str]]:
         if ch == "/" and i + 1 < n and query[i + 1] == "/":
             while i < n and query[i] != "\n":
                 i += 1
+            continue
+        # Multi-line string literal ```...``` or ~~~...~~~
+        if query[i : i + 3] in ("```", "~~~"):
+            delim = query[i : i + 3]
+            end = query.find(delim, i + 3)
+            if end == -1:
+                errors.append(f"unterminated multi-line string literal ({delim})")
+                break
+            out.append(" ")
+            i = end + 3
             continue
         # Verbatim string @"..." or @'...'
         if ch == "@" and i + 1 < n and query[i + 1] in ('"', "'"):
@@ -115,7 +128,7 @@ def check_repo(root: pathlib.Path = REPO_ROOT) -> tuple[int, list[str]]:
             content = path.read_text(encoding="utf-8")
             for idx, match in enumerate(KQL_BLOCK_RE.finditer(content), start=1):
                 blocks_checked += 1
-                for err in validate_kql(match.group(1)):
+                for err in validate_kql(match.group(2)):
                     errors.append(f"{rel} (kql block #{idx}): {err}")
     return blocks_checked, errors
 
