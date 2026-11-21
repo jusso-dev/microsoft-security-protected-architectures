@@ -59,6 +59,30 @@ jobs:
           args: --config .lychee.toml --verbose --no-progress "**/*.md"
           fail: true
 
+      - name: Verify cyber.gov.au links over HTTP/1.1
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, subprocess, sys
+          urls = set()
+          for p in pathlib.Path(".").rglob("*.md"):
+              if any(x in p.parts for x in (".git", "node_modules", ".terraform")):
+                  continue
+              urls.update(re.findall(r"https://www\.cyber\.gov\.au/[^\s\)\]>\"']+", p.read_text(encoding="utf-8")))
+          failed = []
+          for u in sorted(urls):
+              res = subprocess.run(
+                  ["curl", "--http1.1", "-s", "-o", "/dev/null", "-w", "%{http_code}", "-L", "--max-time", "15", u],
+                  capture_output=True, text=True, check=False,
+              )
+              code = res.stdout.strip()
+              print(f"{code} {u}")
+              if code in ("404", "410"):
+                  failed.append((code, u))
+          if failed:
+              print("Broken cyber.gov.au link(s):", failed, file=sys.stderr)
+              sys.exit(1)
+          PY
+
   mermaid:
     name: Mermaid render check
     runs-on: ubuntu-latest
