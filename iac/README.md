@@ -7,7 +7,4 @@ All samples use placeholder identifiers only and must never be deployed to a pro
 ## Available modules
 
 - [Bicep sample](bicep/README.md): Log Analytics workspace, Microsoft Sentinel onboarding, AMPLS Private Link, Data Collection Endpoint, diagnostic settings, delete lock, RBAC and Deploy to Azure button
-
-## Planned modules
-
-- `terraform/` (tracked in issue #13)
+- [Terraform sample](terraform/README.md): Terraform AzureRM equivalent of the Bicep core deployment, validated in CI with `terraform fmt` and `terraform validate`
