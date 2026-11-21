@@ -25,6 +25,9 @@ jobs:
       - name: Run style and secret hygiene check
         run: python3 scripts/check_style.py
 
+      - name: Verify ADR index is up to date
+        run: python3 scripts/generate_adr_index.py --check
+
       - name: Run KQL validation check
         run: python3 scripts/check_kql.py
 
