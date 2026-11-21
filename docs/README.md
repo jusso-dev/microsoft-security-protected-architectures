@@ -6,7 +6,4 @@ Supporting reference documentation for Australian PROTECTED Microsoft Sentinel a
 
 - [Service availability, Australian regions and IRAP status](service-availability-and-irap.md)
 - [Cost model for Australia East](cost-model.md)
-
-## Planned documents
-
-- Information Security Manual (ISM) control mapping (tracked in issue #11)
+- [Information Security Manual (ISM) control mapping](ism-control-mapping.md)
