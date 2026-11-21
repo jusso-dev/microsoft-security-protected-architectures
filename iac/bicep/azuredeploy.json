@@ -1,0 +1,493 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.49.2.45890",
+      "templateHash": "12259334105279443336"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "australiaeast",
+      "allowedValues": [
+        "australiaeast",
+        "australiasoutheast",
+        "australiacentral",
+        "australiacentral2"
+      ],
+      "metadata": {
+        "description": "Azure region for all regional resources. Restricted to Australian regions for PROTECTED residency."
+      }
+    },
+    "workspaceName": {
+      "type": "string",
+      "defaultValue": "law-sentinel-protected",
+      "minLength": 4,
+      "maxLength": 63,
+      "metadata": {
+        "description": "Name of the Azure Log Analytics workspace hosting Microsoft Sentinel."
+      }
+    },
+    "retentionInDays": {
+      "type": "int",
+      "defaultValue": 90,
+      "minValue": 90,
+      "maxValue": 730,
+      "metadata": {
+        "description": "Interactive Analytics retention in days. Minimum 90 days (included with Microsoft Sentinel). Configure total retention to 365+ days in the Sentinel data lake or archive for ISM-1988."
+      }
+    },
+    "dailyQuotaGb": {
+      "type": "int",
+      "defaultValue": -1,
+      "metadata": {
+        "description": "Optional daily ingestion cap in GB. Set to -1 for unlimited ingestion."
+      }
+    },
+    "publicNetworkAccessForIngestion": {
+      "type": "string",
+      "defaultValue": "Disabled",
+      "allowedValues": [
+        "Disabled",
+        "Enabled"
+      ],
+      "metadata": {
+        "description": "Control public network ingestion to the Log Analytics workspace. Disabled enforces Azure Monitor Private Link Scope."
+      }
+    },
+    "publicNetworkAccessForQuery": {
+      "type": "string",
+      "defaultValue": "Disabled",
+      "allowedValues": [
+        "Disabled",
+        "Enabled"
+      ],
+      "metadata": {
+        "description": "Control public network queries to the Log Analytics workspace. Disabled enforces private endpoint query access."
+      }
+    },
+    "deployPrivateLink": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Deploy the security hub Virtual Network, Private DNS zones, AMPLS, Data Collection Endpoint and Private Endpoint."
+      }
+    },
+    "vnetName": {
+      "type": "string",
+      "defaultValue": "vnet-secops-protected",
+      "metadata": {
+        "description": "Name of the Virtual Network hosting the AMPLS Private Endpoint."
+      }
+    },
+    "vnetAddressPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.0.0/22",
+      "metadata": {
+        "description": "Address prefix for the security hub Virtual Network."
+      }
+    },
+    "privateEndpointSubnetPrefix": {
+      "type": "string",
+      "defaultValue": "10.60.1.0/26",
+      "metadata": {
+        "description": "Address prefix for the Private Endpoints subnet."
+      }
+    },
+    "amplsName": {
+      "type": "string",
+      "defaultValue": "ampls-sentinel-protected",
+      "metadata": {
+        "description": "Name of the Azure Monitor Private Link Scope (AMPLS)."
+      }
+    },
+    "dceName": {
+      "type": "string",
+      "defaultValue": "dce-sentinel-protected",
+      "metadata": {
+        "description": "Name of the Data Collection Endpoint (DCE) for private AMA ingestion."
+      }
+    },
+    "enableDeleteLock": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Apply a CanNotDelete resource lock to the Log Analytics workspace (supports ISM-1815)."
+      }
+    },
+    "enableDiagnosticSettings": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Enable diagnostic settings auditing Log Analytics workspace operations."
+      }
+    },
+    "sentinelReaderGroupObjectId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Entra ID security group object ID assigned Microsoft Sentinel Reader on the workspace. Leave empty to skip."
+      }
+    },
+    "sentinelResponderGroupObjectId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Entra ID security group object ID assigned Microsoft Sentinel Responder on the workspace. Leave empty to skip."
+      }
+    },
+    "sentinelContributorGroupObjectId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional Entra ID security group object ID assigned Microsoft Sentinel Contributor on the workspace. Leave empty to skip."
+      }
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {
+        "classification": "PROTECTED",
+        "workload": "microsoft-sentinel",
+        "managedBy": "bicep"
+      },
+      "metadata": {
+        "description": "Tags applied to deployed resources."
+      }
+    }
+  },
+  "variables": {
+    "sentinelReaderRoleId": "8d289c81-5878-46d4-8554-54e1e3d8b5cb",
+    "sentinelResponderRoleId": "3e150937-b8fe-4cfb-8069-0eaf05ecd056",
+    "sentinelContributorRoleId": "ab8e14d6-4a74-4a29-9ba8-549422addade",
+    "privateDnsZoneNames": [
+      "privatelink.monitor.azure.com",
+      "privatelink.oms.opinsights.azure.com",
+      "privatelink.ods.opinsights.azure.com",
+      "privatelink.agentsvc.azure-automation.net"
+    ]
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2023-09-01",
+      "name": "[parameters('workspaceName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        },
+        "retentionInDays": "[parameters('retentionInDays')]",
+        "workspaceCapping": {
+          "dailyQuotaGb": "[parameters('dailyQuotaGb')]"
+        },
+        "publicNetworkAccessForIngestion": "[parameters('publicNetworkAccessForIngestion')]",
+        "publicNetworkAccessForQuery": "[parameters('publicNetworkAccessForQuery')]",
+        "features": {
+          "disableLocalAuth": true,
+          "enableLogAccessUsingOnlyResourcePermissions": true
+        }
+      }
+    },
+    {
+      "type": "Microsoft.SecurityInsights/onboardingStates",
+      "apiVersion": "2024-03-01",
+      "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+      "name": "default",
+      "properties": {
+        "customerManagedKey": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('enableDeleteLock')]",
+      "type": "Microsoft.Authorization/locks",
+      "apiVersion": "2020-05-01",
+      "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+      "name": "[format('{0}-cannot-delete', parameters('workspaceName'))]",
+      "properties": {
+        "level": "CanNotDelete",
+        "notes": "Protects PROTECTED security event logs from unauthorised deletion (ISM-1815)."
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('enableDiagnosticSettings')]",
+      "type": "Microsoft.Insights/diagnosticSettings",
+      "apiVersion": "2021-05-01-preview",
+      "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+      "name": "audit-to-workspace",
+      "properties": {
+        "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+        "logs": [
+          {
+            "categoryGroup": "audit",
+            "enabled": true
+          },
+          {
+            "categoryGroup": "allLogs",
+            "enabled": true
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2024-01-01",
+      "name": "[parameters('vnetName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vnetAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "snet-private-endpoints",
+            "properties": {
+              "addressPrefix": "[parameters('privateEndpointSubnetPrefix')]",
+              "privateEndpointNetworkPolicies": "Disabled"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "copy": {
+        "name": "privateDnsZones",
+        "count": "[length(variables('privateDnsZoneNames'))]"
+      },
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Network/privateDnsZones",
+      "apiVersion": "2024-06-01",
+      "name": "[variables('privateDnsZoneNames')[copyIndex()]]",
+      "location": "global",
+      "tags": "[parameters('tags')]"
+    },
+    {
+      "copy": {
+        "name": "privateDnsZoneLinks",
+        "count": "[length(variables('privateDnsZoneNames'))]"
+      },
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Network/privateDnsZones/virtualNetworkLinks",
+      "apiVersion": "2024-06-01",
+      "name": "[format('{0}/{1}', variables('privateDnsZoneNames')[copyIndex()], format('{0}-link', parameters('vnetName')))]",
+      "location": "global",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "virtualNetwork": {
+          "id": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+        },
+        "registrationEnabled": false
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[copyIndex()])]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "microsoft.insights/privateLinkScopes",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[parameters('amplsName')]",
+      "location": "global",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "accessModeSettings": {
+          "ingestionAccessMode": "[if(equals(parameters('publicNetworkAccessForIngestion'), 'Disabled'), 'PrivateOnly', 'Open')]",
+          "queryAccessMode": "[if(equals(parameters('publicNetworkAccessForQuery'), 'Disabled'), 'PrivateOnly', 'Open')]"
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Insights/dataCollectionEndpoints",
+      "apiVersion": "2023-03-11",
+      "name": "[parameters('dceName')]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "networkAcls": {
+          "publicNetworkAccess": "[parameters('publicNetworkAccessForIngestion')]"
+        }
+      }
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Insights/privateLinkScopes/scopedResources",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}', parameters('amplsName'), format('{0}-scoped', parameters('workspaceName')))]",
+      "properties": {
+        "linkedResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.insights/privateLinkScopes', parameters('amplsName'))]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Insights/privateLinkScopes/scopedResources",
+      "apiVersion": "2021-07-01-preview",
+      "name": "[format('{0}/{1}', parameters('amplsName'), format('{0}-scoped', parameters('dceName')))]",
+      "properties": {
+        "linkedResourceId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('dceName'))]"
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.insights/privateLinkScopes', parameters('amplsName'))]",
+        "[resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('dceName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Network/privateEndpoints",
+      "apiVersion": "2024-01-01",
+      "name": "[format('pe-{0}', parameters('amplsName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[parameters('tags')]",
+      "properties": {
+        "subnet": {
+          "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName')), '2024-01-01').subnets[0].id]"
+        },
+        "privateLinkServiceConnections": [
+          {
+            "name": "[format('plsc-{0}', parameters('amplsName'))]",
+            "properties": {
+              "privateLinkServiceId": "[resourceId('microsoft.insights/privateLinkScopes', parameters('amplsName'))]",
+              "groupIds": [
+                "azuremonitor"
+              ]
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('microsoft.insights/privateLinkScopes', parameters('amplsName'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', parameters('vnetName'))]"
+      ]
+    },
+    {
+      "condition": "[parameters('deployPrivateLink')]",
+      "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+      "apiVersion": "2024-01-01",
+      "name": "[format('{0}/{1}', format('pe-{0}', parameters('amplsName')), 'default')]",
+      "properties": {
+        "copy": [
+          {
+            "name": "privateDnsZoneConfigs",
+            "count": "[length(variables('privateDnsZoneNames'))]",
+            "input": {
+              "name": "[replace(variables('privateDnsZoneNames')[copyIndex('privateDnsZoneConfigs')], '.', '-')]",
+              "properties": {
+                "privateDnsZoneId": "[resourceId('Microsoft.Network/privateDnsZones', variables('privateDnsZoneNames')[copyIndex('privateDnsZoneConfigs')])]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/privateEndpoints', format('pe-{0}', parameters('amplsName')))]",
+        "privateDnsZones"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('sentinelReaderGroupObjectId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+      "name": "[guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName')), parameters('sentinelReaderGroupObjectId'), variables('sentinelReaderRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('sentinelReaderRoleId'))]",
+        "principalId": "[parameters('sentinelReaderGroupObjectId')]",
+        "principalType": "Group",
+        "description": "Least-privilege Microsoft Sentinel Reader access for SOC triage analysts."
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('sentinelResponderGroupObjectId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+      "name": "[guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName')), parameters('sentinelResponderGroupObjectId'), variables('sentinelResponderRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('sentinelResponderRoleId'))]",
+        "principalId": "[parameters('sentinelResponderGroupObjectId')]",
+        "principalType": "Group",
+        "description": "Microsoft Sentinel Responder access for incident investigation and response."
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    },
+    {
+      "condition": "[not(empty(parameters('sentinelContributorGroupObjectId')))]",
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]",
+      "name": "[guid(resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName')), parameters('sentinelContributorGroupObjectId'), variables('sentinelContributorRoleId'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('sentinelContributorRoleId'))]",
+        "principalId": "[parameters('sentinelContributorGroupObjectId')]",
+        "principalType": "Group",
+        "description": "Microsoft Sentinel Contributor access for PIM-eligible detection engineers."
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "workspaceResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the deployed Log Analytics workspace."
+      },
+      "value": "[resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName'))]"
+    },
+    "workspaceCustomerId": {
+      "type": "string",
+      "metadata": {
+        "description": "Customer ID (GUID) of the deployed Log Analytics workspace."
+      },
+      "value": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName')), '2023-09-01').customerId]"
+    },
+    "sentinelOnboardingStateId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Microsoft Sentinel onboarding state."
+      },
+      "value": "[extensionResourceId(resourceId('Microsoft.OperationalInsights/workspaces', parameters('workspaceName')), 'Microsoft.SecurityInsights/onboardingStates', 'default')]"
+    },
+    "amplsResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Azure Monitor Private Link Scope, when deployed."
+      },
+      "value": "[if(parameters('deployPrivateLink'), resourceId('microsoft.insights/privateLinkScopes', parameters('amplsName')), '')]"
+    },
+    "dceResourceId": {
+      "type": "string",
+      "metadata": {
+        "description": "Resource ID of the Data Collection Endpoint, when deployed."
+      },
+      "value": "[if(parameters('deployPrivateLink'), resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('dceName')), '')]"
+    }
+  }
+}
