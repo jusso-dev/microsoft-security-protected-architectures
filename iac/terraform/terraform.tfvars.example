@@ -1,0 +1,16 @@
+resource_group_name        = "rg-sentinel-protected-sample"
+location                   = "australiaeast"
+workspace_name             = "law-sentinel-protected-sample"
+retention_in_days          = 90
+daily_quota_gb             = -1
+internet_ingestion_enabled = false
+internet_query_enabled     = false
+deploy_private_link        = true
+enable_delete_lock         = true
+enable_diagnostic_settings = true
+
+# Replace placeholder GUIDs with Entra ID security group object IDs before applying to a real environment.
+# Leave empty ("") to skip an individual role assignment.
+sentinel_reader_group_object_id      = "00000000-0000-0000-0000-000000000001"
+sentinel_responder_group_object_id   = "00000000-0000-0000-0000-000000000002"
+sentinel_contributor_group_object_id = "00000000-0000-0000-0000-000000000003"
