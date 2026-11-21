@@ -36,6 +36,9 @@ Run these checks before opening a pull request:
 # Style, secret hygiene and endorsement claim check
 python3 scripts/check_style.py
 
+# Regenerate or verify ADR index (adr/README.md)
+python3 scripts/generate_adr_index.py --check
+
 # KQL syntax check
 python3 scripts/check_kql.py
 
