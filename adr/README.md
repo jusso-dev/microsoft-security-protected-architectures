@@ -12,5 +12,6 @@ This repository uses the [MADR](https://adr.github.io/madr/) format. Copy [templ
 | :--- | :--- | :--- | :--- |
 | ADR-0001 | [Workspace and Tenant Design at PROTECTED](0001-workspace-and-tenant-design-at-protected.md) | accepted | 2026-11-21 |
 | ADR-0002 | [Retention, Analytics Tier and Sentinel Data Lake](0002-retention-analytics-tier-and-data-lake.md) | accepted | 2026-11-21 |
+| ADR-0003 | [Defender XDR Integration and Unified SOC Platform](0003-defender-xdr-integration-and-unified-soc-platform.md) | accepted | 2026-11-21 |
 
 <!-- END GENERATED ADR INDEX -->
