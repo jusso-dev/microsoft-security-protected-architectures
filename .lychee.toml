@@ -1,0 +1,16 @@
+max_retries = 3
+retry_wait_time = 2
+timeout = 20
+user_agent = "Mozilla/5.0 (compatible; lychee-link-checker)"
+accept = ["200..=206", "403", "429"]
+# cyber.gov.au drops HTTP/2 connections from lychee on GitHub Actions runners;
+# those URLs are checked separately with curl --http1.1 in CI.
+exclude = [
+  "^https://www\\.cyber\\.gov\\.au/",
+]
+exclude_path = [
+  "node_modules",
+  ".terraform",
+  ".git",
+  ".venv",
+]
