@@ -18,7 +18,7 @@ It is guidance only. Validate every design against your own security risk assess
 
 ## Layout
 
-```
+```text
 architectures/   Reference architectures with diagrams
 adr/             Architecture decision records
 iac/             Sample Bicep and Terraform

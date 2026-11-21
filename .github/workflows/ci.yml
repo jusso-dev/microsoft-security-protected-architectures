@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  style-and-tests:
+    name: Style, KQL and unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run style and secret hygiene check
+        run: python3 scripts/check_style.py
+
+      - name: Run KQL validation check
+        run: python3 scripts/check_kql.py
+
+      - name: Run unit tests
+        run: python3 -m unittest discover -s tests -v
+
+  markdownlint:
+    name: Markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Run markdownlint-cli2
+        run: npx --yes markdownlint-cli2 "**/*.md" "#node_modules" "#.terraform"
+
+  link-check:
+    name: Link check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Markdown links with lychee
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --config .lychee.toml --verbose --no-progress "**/*.md"
+          fail: true
+
+  mermaid:
+    name: Mermaid render check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install mermaid-cli
+        run: npm install --no-save @mermaid-js/mermaid-cli
+
+      - name: Validate and render Mermaid diagrams
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          python3 scripts/check_mermaid.py
+
+  bicep:
+    name: Bicep build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Bicep templates in iac/
+        run: |
+          shopt -s globstar nullglob
+          files=(iac/**/*.bicep)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "No Bicep files found in iac/; skipping."
+            exit 0
+          fi
+          az bicep version
+          for f in "${files[@]}"; do
+            echo "Building $f"
+            az bicep build --file "$f" --stdout > /dev/null
+          done
+
+  terraform:
+    name: Terraform validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check for Terraform files in iac/
+        id: tfcheck
+        run: |
+          shopt -s globstar nullglob
+          files=(iac/**/*.tf)
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "has_tf=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_tf=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Terraform
+        if: steps.tfcheck.outputs.has_tf == 'true'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+
+      - name: Validate Terraform configurations in iac/
+        if: steps.tfcheck.outputs.has_tf == 'true'
+        run: |
+          terraform fmt -check -recursive iac/
+          mapfile -t dirs < <(find iac -name '*.tf' -exec dirname {} \; | sort -u)
+          for d in "${dirs[@]}"; do
+            echo "Validating Terraform in $d"
+            terraform -chdir="$d" init -backend=false
+            terraform -chdir="$d" validate
+          done

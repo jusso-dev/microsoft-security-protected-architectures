@@ -1,0 +1,11 @@
+max_retries = 3
+retry_wait_time = 2
+timeout = 20
+user_agent = "Mozilla/5.0 (compatible; lychee-link-checker)"
+accept = ["200..=206", "403", "429"]
+exclude_path = [
+  "node_modules",
+  ".terraform",
+  ".git",
+  ".venv",
+]
