@@ -8,6 +8,8 @@ This repository uses the [MADR](https://adr.github.io/madr/) format. Copy [templ
 
 ## Index
 
-No numbered ADRs have been published yet.
+| ID | Title | Status | Date |
+| :--- | :--- | :--- | :--- |
+| ADR-0001 | [Workspace and Tenant Design at PROTECTED](0001-workspace-and-tenant-design-at-protected.md) | accepted | 2026-11-21 |
 
 <!-- END GENERATED ADR INDEX -->
